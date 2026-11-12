@@ -1,0 +1,63 @@
+# ChatX on Render — one blueprint, no AWS.
+# Push the repo root (this file's folder) to GitHub, then
+# Render Dashboard → New → Blueprint → select the repo.
+# After first deploy, fill the two REPLACE-WITH-* values (see DEPLOY.md).
+
+services:
+  # ---- Spring Boot API (Docker) ----
+  - type: web
+    name: chatx-api
+    runtime: docker
+    rootDir: Backend
+    plan: free
+    disk:
+      name: chatx-uploads
+      mountPath: /var/chatx-uploads
+      sizeGB: 1
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        # Paste the Internal Database URL from chatx-postgres, but with a
+        # jdbc: scheme, e.g. jdbc:postgresql://dpg-xxx:5432/chatx
+        value: REPLACE-WITH-jdbc-postgresql-url
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: chatx-postgres
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: chatx-postgres
+          property: password
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ALLOWED_ORIGINS
+        # Your frontend URL, e.g. https://chatx-web.onrender.com
+        value: REPLACE-WITH-frontend-url
+      - key: COOKIE_SECURE
+        value: true
+      - key: STORAGE_TYPE
+        value: local
+      - key: STORAGE_LOCAL_LOCATION
+        value: /var/chatx-uploads
+
+  # ---- Next.js frontend (Node) ----
+  - type: web
+    name: chatx-web
+    runtime: node
+    rootDir: chat-frontend
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        # e.g. https://chatx-api.onrender.com ( baked at build time )
+        value: REPLACE-WITH-backend-url
+      - key: NEXT_PUBLIC_WS_URL
+        value: REPLACE-WITH-backend-url/ws
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false
+
+databases:
+  - name: chatx-postgres
+    plan: free
